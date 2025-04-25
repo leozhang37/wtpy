@@ -845,14 +845,14 @@ class WtBtSnooper:
 
         bars = list()
         for realBar in barList:
-            bar = dict()
-            bar["bartime"] = int(realBar.date if isDay  else 199000000000 + realBar.bartime)
-            bar["open"] = realBar.open
-            bar["high"] = realBar.high
-            bar["low"] = realBar.low
-            bar["close"] = realBar.close
-            bar["volume"] = realBar.volume
-            bar["turnover"] = realBar.money
-            bars.append(bar)
+            bars.append(dict(
+                bartime = int(realBar['date'] if isDay else 199000000000 + realBar['time']),
+                open = realBar['open'],
+                high = realBar['high'],
+                low = realBar['low'],
+                close = realBar['close'],
+                volume = realBar['volume'],
+                turnover = realBar['turnover']
+            ))
 
         return code, bars, index, marks

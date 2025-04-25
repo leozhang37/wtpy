@@ -1,5 +1,15 @@
 import logging
+import colorlog
 import os
+from logging.handlers import TimedRotatingFileHandler
+
+log_colors_config = {
+    'DEBUG': 'white',  # cyan white
+    'INFO': 'green',
+    'WARNING': 'yellow',
+    'ERROR': 'red',
+    'CRITICAL': 'bold_red',
+}
 
 class WtLogger:
 
@@ -12,16 +22,25 @@ class WtLogger:
         if not os.path.exists(log_path):
             os.mkdir(log_path)
         logname = log_path + filename #指定输出的日志文件名
-        fh = logging.FileHandler(logname,encoding = 'utf-8',mode='a')  # 指定utf-8格式编码，避免输出的日志文本乱码
+        fh = TimedRotatingFileHandler(logname, encoding = 'utf-8', when="d")  # 指定utf-8格式编码，避免输出的日志文本乱码
         fh.setLevel(logging.INFO)
 
         #创建一个handler，用于将日志输出到控制台
         ch = logging.StreamHandler()
         ch.setLevel(logging.INFO)
 
-        # 定义handler的输出格式
-        formatter = logging.Formatter('[%(asctime)s - %(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        formatter = logging.Formatter(
+            fmt='[%(asctime)s.%(msecs)03d - %(levelname)s] %(message)s', 
+            datefmt='%Y-%m-%d %H:%M:%S'
+            )
         fh.setFormatter(formatter)
+
+        # 定义handler的输出格式
+        formatter = colorlog.ColoredFormatter(
+            fmt='%(log_color)s[%(asctime)s.%(msecs)03d - %(levelname)s] %(message)s', 
+            datefmt='%Y-%m-%d %H:%M:%S',
+            log_colors=log_colors_config
+            )        
         ch.setFormatter(formatter)
 
         # 给logger添加handler

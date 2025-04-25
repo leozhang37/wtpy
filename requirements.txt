@@ -1,11 +1,12 @@
 numpy
-pandas==1.3.5
+pandas
 chardet
 pyyaml
-xlsxwriter
 pyquery
+xlsxwriter
+deap
 psutil
 fastapi
 uvicorn
-deap
-websockets>=10.4
+itsdangerous
+websockets>=9.1

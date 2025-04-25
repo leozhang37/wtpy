@@ -7,12 +7,12 @@ import yaml
 import json
 
 CB_ACCOUNT = CFUNCTYPE(c_void_p, c_char_p, c_uint32, c_char_p, c_double, c_double, c_double, c_double, 
-            c_double, c_double, c_double, c_double, c_double, c_bool)
+            c_double, c_double, c_double, c_double, c_double, c_double, c_bool)
 CB_ORDER = CFUNCTYPE(c_void_p, c_char_p, c_char_p, c_char_p, c_uint32, c_char_p, c_uint32, c_uint32, 
             c_double, c_double, c_double, c_double, c_uint32, c_uint32, c_uint64, c_uint32, c_char_p, c_bool)
 CB_TRADE = CFUNCTYPE(c_void_p, c_char_p, c_char_p, c_char_p, c_uint32, c_char_p, c_char_p, c_uint32, 
             c_uint32, c_double, c_double, c_double, c_uint32, c_uint32, c_uint64, c_bool)
-CB_POSITION = CFUNCTYPE(c_void_p, c_char_p, c_char_p, c_char_p, c_uint32, c_uint32, c_double, c_double, 
+CB_POSITION = CFUNCTYPE(c_void_p, c_char_p, c_char_p, c_char_p, c_uint32, c_uint32, c_double, c_double, c_double, 
             c_double, c_double, c_double, c_uint32, c_bool)
 
 class DumperSink:
@@ -28,7 +28,7 @@ class DumperSink:
             offset:int, volume:float, price:float, amount:float, ordertype:int, tradetype:int, tradetime:int, isLast:bool):
         pass
 
-    def on_position(self, channelid, exchg, code, curTDate:int, direct:int, volume:float, 
+    def on_position(self, channelid, exchg, code, curTDate:int, direct:int, volume:float, newvol:float,
             cost:float, margin:float, avgpx:float, dynprofit:float, volscale:int, isLast:bool):
         pass
 
@@ -92,13 +92,13 @@ class TraderDumper:
         self.__check_config__()
 
         if contractfile is not None:
-            self.__config__["replayer"]["basefiles"]["contract"] = folder + contractfile
+            self.__config__["basefiles"]["contract"] = folder + contractfile
         
         if sessionfile is not None:
-            self.__config__["replayer"]["basefiles"]["session"] = folder + sessionfile
+            self.__config__["basefiles"]["session"] = folder + sessionfile
 
         if commfile is not None:
-            self.__config__["replayer"]["basefiles"]["commodity"] = folder + commfile
+            self.__config__["basefiles"]["commodity"] = folder + commfile
 
     def __commit__(self):
         content = json.dumps(self.__config__, indent=4)

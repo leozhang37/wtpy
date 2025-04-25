@@ -1,5 +1,6 @@
 from wtpy.wrapper.WtMQWrapper import WtMQWrapper, CB_ON_MSG
 from wtpy.WtUtilDefs import singleton
+from ctypes import c_char, POINTER
 
 class WtMQServer:
 
@@ -36,16 +37,17 @@ class WtMQClient:
             raise Exception("MQClient not initialzied")
         self.wrapper.subcribe_topic(self.id, topic)
 
-    def on_mq_message(self, topic:str, message:str, dataLen:int):
+    def on_mq_message(self, topic:bytes, message, dataLen:int):
         pass
 
 @singleton
 class WtMsgQue:
 
-    def __init__(self) -> None:
+    def __init__(self, logger = None) -> None:
         self._servers = dict()
         self._clients = dict()
-        self._wrapper = WtMQWrapper(self)
+        self._logger = logger
+        self._wrapper = WtMQWrapper(logger)
 
         self._cb_msg = CB_ON_MSG(self.on_mq_message)
 
@@ -55,11 +57,11 @@ class WtMsgQue:
         
         return self._clients[client_id]
 
-    def on_mq_message(self, client_id:int, topic:str, message:str, dataLen:int):
+    def on_mq_message(self, client_id:int, topic:bytes, message:POINTER(c_char), dataLen:int):
         client = self.get_client(client_id)
         if client is None:
+            print(f"WtMsgQue: client {client_id} not found")
             return
-
         client.on_mq_message(topic, message, dataLen)
 
     def add_mq_server(self, url:str, server:WtMQServer = None) -> WtMQServer:

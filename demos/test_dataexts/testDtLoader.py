@@ -30,7 +30,7 @@ class MyDataLoader(BaseExtDataLoader):
             ' <High>':'high',
             ' <Low>':'low',
             ' <Close>':'close',
-            ' <Volume>':'vol',
+            ' <Volume>':'volume',
             })
         df['date'] = df['date'].astype('datetime64').dt.strftime('%Y%m%d').astype('int64')
         df['time'] = (df['date']-19900000)*10000 + df['time'].str.replace(':', '').str[:-2].astype('int')
@@ -44,8 +44,8 @@ class MyDataLoader(BaseExtDataLoader):
 
         df.apply(assign, buffer=buffer)
         print(df)
-        print(buffer[0].to_dict)
-        print(buffer[-1].to_dict)
+        print(buffer[0].to_dict())
+        print(buffer[-1].to_dict())
 
         feeder(buffer, len(df))
         return True

@@ -431,7 +431,7 @@ class WtMonSvr(WatcherSink):
                     "message": "Data not found"
                 }
             else:
-                bar_list = [curBar.to_dict for curBar in bars]
+                bar_list = [curBar.to_dict() for curBar in bars]
 
                 ret = {
                     "result": 0,
@@ -2464,7 +2464,7 @@ class WtMonSvr(WatcherSink):
     def __run_impl__(self, port: int, host: str):
         self._dog.run()
         self.push_svr.run()
-        uvicorn.run(self.app, port=port, host=host)
+        uvicorn.run(self.app, port=port, host=host, log_level="error")
 
     def run(self, port: int = 8080, host="0.0.0.0", bSync: bool = True):
         # 仅linux生效，在linux中，子进程会一直等待父进程处理其结束信号才能释放，如果不加这一句忽略子进程的结束信号，子进程就无法结束

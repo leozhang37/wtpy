@@ -16,8 +16,11 @@ class WTSStruct(Structure):
     @property
     def values(self) -> tuple:
         return tuple(getattr(self, i[0]) for i in self._fields_)
-
+    
     @property
+    def dict(self) -> dict:
+        return {i[0]:getattr(self, i[0]) for i in self._fields_}
+    
     def to_dict(self) -> dict:
         return {i[0]:getattr(self, i[0]) for i in self._fields_}
 
@@ -239,9 +242,9 @@ class WTSBarStruct(WTSStruct):
                 ("low", c_double),
                 ("close", c_double),
                 ("settle", c_double),
-                ("money", c_double),
-                ("vol", c_double),
-                ("hold", c_double),
+                ("turnover", c_double),
+                ("volume", c_double),
+                ("open_interest", c_double),
                 ("diff", c_double)]
     _pack_ = 8
 
@@ -265,9 +268,9 @@ class WTSBarStruct(WTSStruct):
                 self.low,
                 self.close,
                 self.settle,
-                self.money,
-                self.vol,
-                self.hold,
+                self.turnover,
+                self.volume,
+                self.open_interest,
                 self.diff)
 
 class WTSTransStruct(WTSStruct):
@@ -338,7 +341,7 @@ class WTSOrdQueStruct(WTSStruct):
                 self.price,
                 self.order_items,
                 self.qsize
-            ) + tuple(self.bidorder)
+            ) + tuple(self.volumes)
 
 class WTSOrdDtlStruct(WTSStruct):
     '''
