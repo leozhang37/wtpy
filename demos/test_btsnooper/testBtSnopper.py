@@ -5,10 +5,10 @@ def testBtSnooper():
 
     dtServo = WtDtServo()
     # 这里配置的是基础数据文件目录
-    dtServo.setBasefiles(folder="E:\\gitlocal\\MyStras\\CTA\\common\\")
+    dtServo.setBasefiles(folder="/Users/leo/wt/common/")
 
     # 这里配置的是datakit落地的数据目录
-    dtServo.setStorage(path='E:/storage/')
+    dtServo.setStorage(path='/Users/leo/wt/fut_data')
 
     snooper = WtBtSnooper(dtServo)
     snooper.run_as_server(port=8081, host="0.0.0.0")
