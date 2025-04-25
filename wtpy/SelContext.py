@@ -1,5 +1,6 @@
-from wtpy.wrapper import WtWrapper
-from wtpy.WtDataDefs import WtBarRecords, WtTickRecords
+from ctypes import POINTER
+from wtpy.WtCoreDefs import WTSBarStruct, WTSTickStruct
+from wtpy.WtDataDefs import WtNpKline, WtNpTicks
 
 class SelContext:
     '''
@@ -11,11 +12,11 @@ class SelContext:
     3、下单接口（设置目标仓位、直接下单等），接口格式如：stra_xxx
     '''
 
-    def __init__(self, id:int, stra, wrapper: WtWrapper, engine):
+    def __init__(self, id:int, stra, wrapper, engine):
         self.__stra_info__ = stra   #策略对象，对象基类BaseStrategy.py
         self.__wrapper__ = wrapper  #底层接口转换器
         self.__id__ = id            #策略ID
-        self.__bar_cache__ = dict() #K线缓存
+        self.__bar_cache__ = dict()     #K线缓存
         self.__tick_cache__ = dict()    #tTick缓存，每次都重新去拉取，这个只做中转用，不在python里维护副本
         self.__sname__ = stra.name()    
         self.__engine__ = engine          #交易环境
@@ -98,29 +99,25 @@ class SelContext:
         '''
         self.__stra_info__.on_backtest_end(self)
 
-    def on_getticks(self, stdCode:str, newTicks:list, isLast:bool):
+    def on_getticks(self, stdCode:str, newTicks:WtNpTicks):
         key = stdCode
 
-        ticks = self.__tick_cache__[key]
-        for newTick in newTicks:
-            ticks.append(newTick)
+        self.__tick_cache__[key] = newTicks
 
     def on_getpositions(self, stdCode:str, qty:float, frozen:float):
         if len(stdCode) == 0:
             return
         self.__pos_cache__[stdCode] = qty
 
-    def on_getbars(self, stdCode:str, period:str, newBars:list):
+    def on_getbars(self, stdCode:str, period:str, npBars:WtNpKline):
         key = "%s#%s" % (stdCode, period)
 
-        bars = self.__bar_cache__[key]
-        for newBar in newBars:
-            bars.append(newBar)
+        self.__bar_cache__[key] = npBars
 
-    def on_tick(self, stdCode:str, newTick):
-        self.__stra_info__.on_tick(self, stdCode, newTick)
+    def on_tick(self, stdCode:str, newTick:POINTER(WTSTickStruct)):
+        self.__stra_info__.on_tick(self, stdCode, newTick.contents.to_dict)
 
-    def on_bar(self, stdCode:str, period:str, newBar:tuple):
+    def on_bar(self, stdCode:str, period:str, newBar:POINTER(WTSBarStruct)):
         '''
         K线闭合事件响应
         @stdCode   品种代码
@@ -132,13 +129,9 @@ class SelContext:
 
         if key not in self.__bar_cache__:
             return
-
+        
         try:
-            self.__bar_cache__[key].append(newBar)
-
-            # By Wesley @ 2021.12.24
-            # 因为基础数据结构改变了，传进来的newBar是一个tuple，一定要通过缓存中转一下，才能当成dict传给策略
-            self.__stra_info__.on_bar(self, stdCode, period, self.__bar_cache__[key][-1])
+            self.__stra_info__.on_bar(self, stdCode, period, newBar.contents.to_dict)
         except ValueError as ve:
             print(ve)
         else:
@@ -226,7 +219,7 @@ class SelContext:
         self.__wrapper__.sel_get_all_position(self.__id__)
         return self.__pos_cache__
     
-    def stra_prepare_bars(self, stdCode:str, period:str, count:int, isMain:bool = False):
+    def stra_prepare_bars(self, stdCode:str, period:str, count:int):
         '''
         准备历史K线
         一般在on_init调用
@@ -235,51 +228,42 @@ class SelContext:
         @count  要拉取的K线条数
         @isMain 是否是主K线
         '''
-        key = "%s#%s" % (stdCode, period)
 
-        if key in self.__bar_cache__:
-            #这里做一个数据长度处理
-            return self.__bar_cache__[key]
+        self.__wrapper__.sel_get_bars(self.__id__, stdCode, period, count)
 
-        self.__bar_cache__[key] = WtBarRecords(size=count)
-        self.__wrapper__.sel_get_bars(self.__id__, stdCode, period, count, isMain)
-
-    def stra_get_bars(self, stdCode:str, period:str, count:int) -> WtBarRecords:
+    def stra_get_bars(self, stdCode:str, period:str, count:int) -> WtNpKline:
         '''
         获取历史K线
         @stdCode   合约代码
-        @period K线周期，如m3/d7
+        @period K线周期, 如m3/d7
         @count  要拉取的K线条数
+        @isMain 是否是主K线
         '''
         key = "%s#%s" % (stdCode, period)
 
-        if key in self.__bar_cache__:
-            #这里做一个数据长度处理
-            return self.__bar_cache__[key]
-
-        self.__bar_cache__[key] = WtBarRecords(size=count)
+        # 每次都重新构造，不然onbar处理会更麻烦
         cnt =  self.__wrapper__.sel_get_bars(self.__id__, stdCode, period, count)
         if cnt == 0:
             return None
 
-        df_bars = self.__bar_cache__[key]
-        df_bars.closed = False
+        npBars = self.__bar_cache__[key]
 
-        return df_bars
-
-    def stra_get_ticks(self, stdCode:str, count:int) -> WtTickRecords:
+        return npBars
+    
+    def stra_get_ticks(self, stdCode:str, count:int) -> WtNpTicks:
         '''
         获取tick数据
         @stdCode   合约代码
         @count  要拉取的tick数量
         '''
-        self.__tick_cache__[stdCode] = WtTickRecords(size=count)
-        cnt = self.__wrapper__.cta_get_ticks(self.__id__, stdCode, count)
+
+        self.__tick_cache__[stdCode] = WtNpTicks()
+        cnt = self.__wrapper__.sel_get_ticks(self.__id__, stdCode, count)
         if cnt == 0:
             return None
         
-        df_ticks = self.__tick_cache__[stdCode]
-        return df_ticks
+        np_ticks = self.__tick_cache__[stdCode]
+        return np_ticks
 
     def stra_sub_ticks(self, stdCode:str):
         '''
