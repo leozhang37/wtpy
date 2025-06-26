@@ -93,7 +93,7 @@ class Calculate():
     def calmar_ratio(self):
         maxdrawdown = Calculate.maxDrawdown_ratio(self)
         annual_return = Calculate.get_annual_return(self)
-        calmar_ratio = annual_return / maxdrawdown
+        calmar_ratio = annual_return / maxdrawdown if maxdrawdown > 0 else 0
         return calmar_ratio
 
     # 斯特林比率
@@ -429,6 +429,7 @@ def time_analysis(df_closes:df,df_funds:df) -> dict:
     # 最大回撤区间
     maxdrawdown_time = factors.maxDrawdown_time()
 
+
     # 回撤开始日期
     start_time = maxdrawdown_time[1]
     start_time = parse(str(input_data['opentime'][start_time]))
@@ -478,17 +479,17 @@ def ratio_calculate(data, data2,after_merge, capital = 500000, rf = 0, period = 
     sterling_ratio = factors.sterling_a_ratio()
     result1 = performance_summary(data, after_merge,data2=data2)
     # 净利/单笔最大亏损
-    net_s_loss = result1.get('净利') / result1.get('单笔最大亏损')
+    net_s_loss = result1.get('净利') / result1.get('单笔最大亏损') if result1.get('单笔最大亏损') > 0 else 0
     # 净利/单笔最大回撤
-    net_s_drawdown = result1.get('净利') / factors.single_largest_maxdrawdown_value()
+    net_s_drawdown = result1.get('净利') / factors.single_largest_maxdrawdown_value() if factors.single_largest_maxdrawdown_value() > 0 else 0
     # 净利/ 策略最大回撤
-    net_strategy_drawdown =  result1.get('净利') / factors.maxDrawdown()
+    net_strategy_drawdown =  result1.get('净利') / factors.maxDrawdown() if factors.maxDrawdown() > 0 else 0
     # 调整净利/单笔最大亏损
-    adjust_s_loss = result1.get('调整净利') / result1.get('单笔最大亏损')
+    adjust_s_loss = result1.get('调整净利') / result1.get('单笔最大亏损') if result1.get('单笔最大亏损') > 0 else 0
     # 调整净利/单笔最大回撤
-    adjust_s_drawdown = result1.get('调整净利') / factors.single_largest_maxdrawdown_value()
+    adjust_s_drawdown = result1.get('调整净利') / factors.single_largest_maxdrawdown_value() if factors.single_largest_maxdrawdown_value() >0 else 0
     # 调整净利/ 策略最大回撤
-    adjust_strategy_drawdown = result1.get('调整净利') / factors.maxDrawdown()
+    adjust_strategy_drawdown = result1.get('调整净利') / factors.maxDrawdown() if factors.maxDrawdown() >0 else 0
 
     result = {'潜在上涨比率':potential_upside_ratio,
               '夏普比率':sharpe_ratio,
@@ -583,7 +584,7 @@ def performance_summary(input_data, input_data1, capital = 500000, rf = 0.00, pe
     return result
 
 def do_trading_analyze(df_closes, df_funds):
-    
+
     df_wins = df_closes[df_closes["profit"] > 0]
     df_loses = df_closes[df_closes["profit"] <= 0]
 
@@ -796,7 +797,7 @@ def trading_analyze(workbook:Workbook, df_closes, df_funds, capital = 500000):
             'categories': '=%s!$A$4:$A$%s' % (sheetName, length+3),
             'values':   '=%s!$J$4:$J$%s' % (sheetName, length+3),
             'marker': {
-                'type':"circle", 
+                'type':"circle",
                 'size':3
             }
         }
@@ -816,8 +817,8 @@ def trading_analyze(workbook:Workbook, df_closes, df_funds, capital = 500000):
             'categories': '=%s!$A$4:$A$%s' % (sheetName, length+3),
             'values':   '=%s!$N$4:$N$%s' % (sheetName, length+3),
             'marker': {
-                'type':"diamond", 
-                'size':3, 
+                'type':"diamond",
+                'size':3,
                 'border': {'color': 'red'},
                 'fill':   {'color': 'red'}
             }
@@ -838,8 +839,8 @@ def trading_analyze(workbook:Workbook, df_closes, df_funds, capital = 500000):
             'categories': '=%s!$A$4:$A$%s' % (sheetName, length+3),
             'values':   '=%s!$P$4:$P$%s' % (sheetName, length+3),
             'marker': {
-                'type':"triangle", 
-                'size':3, 
+                'type':"triangle",
+                'size':3,
                 'border': {'color': 'green'},
                 'fill':   {'color': 'green'}
             }
@@ -849,12 +850,12 @@ def trading_analyze(workbook:Workbook, df_closes, df_funds, capital = 500000):
     chart_col.set_x_axis({'label_position': 'low'})
     worksheet.insert_chart('A%d' % (next_row+2), chart_col,{'x_scale': 1.8, 'y_scale': 1.8})
 
- 
+
     # 周期分析
     worksheet = workbook.add_worksheet('周期分析')
 
     df_closes['opentime'] = df_closes['opentime'].apply(lambda x: parse(str(int(x / 10000))))
-    res = stat_closes_by_day(df_closes.copy(), capital)    
+    res = stat_closes_by_day(df_closes.copy(), capital)
     worksheet.write_row('A1', ['日度绩效分析'], title_format)
     worksheet.write_row('A3', ['期间','盈利(¤)','盈利(%)','毛利','毛损','交易次数','胜率(%)'], index_format)
     worksheet.write_column('A4', res.index, date_format)
@@ -864,7 +865,7 @@ def trading_analyze(workbook:Workbook, df_closes, df_funds, capital = 500000):
     worksheet.write_column('E4', res["gross_loss"], value_format)
     worksheet.write_column('F4', res["times"], value_format)
     worksheet.write_column('G4', res["win_rate"]*100, value_format)
-  
+
     next_row = 5 + len(res)
     res = stat_closes_by_month(df_closes.copy(), capital)
     worksheet.write_row('A%d'%(next_row+1), ['月度绩效分析'], title_format)
@@ -878,7 +879,7 @@ def trading_analyze(workbook:Workbook, df_closes, df_funds, capital = 500000):
     worksheet.write_column('G%d'%(next_row+4), res["win_rate"]*100, value_format)
 
     next_row = next_row + 4 + len(res)
-    res = stat_closes_by_year(df_closes.copy(), capital) 
+    res = stat_closes_by_year(df_closes.copy(), capital)
     worksheet.write_row('A%d'%(next_row+1), ['年度绩效分析'], title_format)
     worksheet.write_row('A%d'%(next_row+3), ['期间','盈利(¤)','盈利(%)','毛利','毛损','交易次数','胜率(%)'], index_format)
     worksheet.write_column('A%d'%(next_row+4), res.index, index_format)
@@ -968,18 +969,18 @@ def strategy_analyze(workbook:Workbook, df_closes, df_trades,df_funds, capital, 
         'valign':       'vcenter'  # 垂直居中
     })
     result1.fillna(value=0, inplace=True)
-    worksheet.write_row('A1', ['策略绩效概要'], title_format)    
+    worksheet.write_row('A1', ['策略绩效概要'], title_format)
     worksheet.write_row('B3', ['所有交易','多头交易','空头交易'], index_format)
     worksheet.write_column('A4', result1['策略绩效概要'], index_format)
     worksheet.write_column('B4', result1['所有交易'], value_format)
     worksheet.write_column('C4', result1['多头交易'], value_format)
     worksheet.write_column('D4', result1['空头交易'], value_format)
 
-    worksheet.write_row('A22', ['绩效比率'], title_format)    
+    worksheet.write_row('A22', ['绩效比率'], title_format)
     worksheet.write_column('A24', result2.keys(), index_format)
     worksheet.write_column('B24', result2.values(), value_format)
 
-    worksheet.write_row('A37', ['时间分析'], title_format)    
+    worksheet.write_row('A37', ['时间分析'], title_format)
     worksheet.write_column('A39', result3.keys(), index_format)
     worksheet.write_column('B39', result3.values(), value_format)
 
@@ -1169,12 +1170,12 @@ def output_closes(workbook:Workbook, df_closes:df, capital = 500000):
         'align':        'right',  # 水平居中
         'valign':       'vcenter'  # 垂直居中
     })
-    
+
 
     df_closes['entrytime'] = df_closes['opentime'].apply(lambda x: datetime.strptime(str(x), '%Y%m%d%H%M'))
     df_closes['exittime'] = df_closes['closetime'].apply(lambda x: datetime.strptime(str(x), '%Y%m%d%H%M'))
 
-    worksheet.write_row('A1', ['交易列表'], title_format)    
+    worksheet.write_row('A1', ['交易列表'], title_format)
     worksheet.write_row('A3', ['编号', '代码','方向','进场时间','进场价格','进场标记','出场时间','出场价格','出场标记',
     '盈利¤','盈利%','累计盈利¤','累计盈利%','潜在盈利¤','潜在盈利%','潜在亏损¤','潜在亏损%','累计权益','平仓K线编号'], index_format)
     df_closes["profit_ratio"] = df_closes["profit"]*100/capital
@@ -1220,7 +1221,7 @@ def summary_analyze(df_funds:df, capital = 5000000, rf = 0, period = 240) -> dic
     ayBal = df_funds["dynbalance"]              # 每日期末动态权益
 
     #生成每日期初动态权益
-    ayPreBal = np.array(ayBal.tolist()[:-1])  
+    ayPreBal = np.array(ayBal.tolist()[:-1])
     ayPreBal = np.insert(ayPreBal, 0, init_capital)    #每日期初权益
     df_funds["prebalance"] = ayPreBal
 
@@ -1229,7 +1230,7 @@ def summary_analyze(df_funds:df, capital = 5000000, rf = 0, period = 240) -> dic
 
     #每日净值
     ayNetVals = (ayBal/init_capital)
-    
+
     if ayNetVals.iloc[-1] >= 0:
         ar = math.pow(ayNetVals.iloc[-1], annual_days/days) - 1       #年化收益率=总收益率^(年交易日天数/统计天数)
     else:
@@ -1277,15 +1278,15 @@ def summary_analyze(df_funds:df, capital = 5000000, rf = 0, period = 240) -> dic
     return {
         'capital': capital,
         "days": days,
-        "total_return":(ayNetVals.iloc[-1]-1)*100, 
-        "annual_return":ar*100, 
-        "win_rate":(windays/days)*100, 
-        "max_falldown":mdd*100, 
-        "max_profratio":mup*100, 
-        "std":delta*100, 
-        "down_std":down_delta*100, 
-        "sharpe_ratio":sr, 
-        "sortino_ratio":sortino, 
+        "total_return":(ayNetVals.iloc[-1]-1)*100,
+        "annual_return":ar*100,
+        "win_rate":(windays/days)*100,
+        "max_falldown":mdd*100,
+        "max_profratio":mup*100,
+        "std":delta*100,
+        "down_std":down_delta*100,
+        "sharpe_ratio":sr,
+        "sortino_ratio":sortino,
         "calmar_ratio":calmar
     }
 
@@ -1303,7 +1304,7 @@ def funds_analyze(workbook:Workbook, df_funds:df, capital = 5000000, rf = 0, per
     ayBal = df_funds["dynbalance"]              # 每日期末动态权益
 
     #生成每日期初动态权益
-    ayPreBal = np.array(ayBal.tolist()[:-1])  
+    ayPreBal = np.array(ayBal.tolist()[:-1])
     ayPreBal = np.insert(ayPreBal, 0, init_capital)    #每日期初权益
     df_funds["prebalance"] = ayPreBal
 
@@ -1312,7 +1313,7 @@ def funds_analyze(workbook:Workbook, df_funds:df, capital = 5000000, rf = 0, per
 
     #每日净值
     ayNetVals = (ayBal/init_capital)
-    
+
     ar = math.pow(ayNetVals.iloc[-1], annual_days/days) - 1       #年化收益率=总收益率^(年交易日天数/统计天数)
     ayDailyReturn = ayBal/ayPreBal-1 #每日收益率
     delta = fmtNAN(ayDailyReturn.std(axis=0)*math.pow(annual_days,0.5),0)       #年化标准差=每日收益率标准差*根号下(年交易日天数)
@@ -1369,7 +1370,7 @@ def funds_analyze(workbook:Workbook, df_funds:df, capital = 5000000, rf = 0, per
         'align':    'right',    # 右对齐
         'valign':   'vcenter',  # 垂直居中
     })
-        
+
     fund_data_format_2 = workbook.add_format({
         'border': 1,
         'align':    'right',    # 右对齐
@@ -1665,7 +1666,7 @@ class WtBtAnalyst:
             init_capital = sInfo["cap"]
             annual_days = sInfo["atd"]
             rf = sInfo["rf"]
-            
+
             if len(outFileName) == 0:
                 outFileName = 'Strategy[%s]_PnLAnalyzing_%s_%s.xlsx' % (sname, df_funds['date'][0], df_funds['date'].iloc[-1])
             workbook = Workbook(outFileName)
@@ -1687,7 +1688,7 @@ class WtBtAnalyst:
             init_capital = sInfo["cap"]
             annual_days = sInfo["atd"]
             rf = sInfo["rf"]
-            
+
             filename = folder + 'summary.json'
             sumObj = summary_analyze(df_funds, capital=init_capital, rf=rf, period=annual_days)
             sumObj["name"] = sname
@@ -1836,7 +1837,7 @@ class WtBtAnalyst:
                 "year": closes_year
             }, indent=4, ensure_ascii=True))
             f.close()
-            
+
             filename = os.path.join(folder,"summary.json")
             sumObj = summary_analyze(df_funds, capital=capital, rf=rf, period=annual_days)
             sumObj["name"] = sname
