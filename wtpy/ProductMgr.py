@@ -36,12 +36,12 @@ class ProductMgr:
         content = f.read()
         f.close()
         encoding = chardet.detect(content[:500])["encoding"]
-        content = content.decode(encoding)
+        content = content.decode(encoding, errors='ignore')
 
         if fname.lower().endswith(".yaml"):
             exchgMap = yaml.full_load(content)
         else:
-            exchgMap = json.loads(content, errors='ignore')
+            exchgMap = json.loads(content)
 
         for exchg in exchgMap:
             exchgObj = exchgMap[exchg]
