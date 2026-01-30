@@ -41,7 +41,7 @@ class ProductMgr:
         if fname.lower().endswith(".yaml"):
             exchgMap = yaml.full_load(content)
         else:
-            exchgMap = json.loads(content)
+            exchgMap = json.loads(content, errors='ignore')
 
         for exchg in exchgMap:
             exchgObj = exchgMap[exchg]
