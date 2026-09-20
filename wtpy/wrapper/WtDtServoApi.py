@@ -1,6 +1,6 @@
 from ctypes import cdll, CFUNCTYPE, c_char_p, c_void_p, c_bool, POINTER, c_uint64, c_uint32
 from wtpy.WtCoreDefs import WTSBarStruct, WTSTickStruct
-from wtpy.WtDataDefs import WtNpKline, WtNpTicks, WtBarCache, WtTickCache
+from wtpy.WtDataDefs import WtNpKline, WtNpTicks, WtBarCache, WtTickCache, period_to_flag, PERIOD_FLAG_SEC
 from wtpy.wrapper.PlatformHelper import PlatformHelper as ph
 from wtpy.WtUtilDefs import singleton
 import os
@@ -54,7 +54,12 @@ class WtDtServoApi:
         @fromTime   开始时间, 日线数据格式yyyymmdd, 分钟线数据为格式为yyyymmddHHMM
         @endTime    结束时间, 日线数据格式yyyymmdd, 分钟线数据为格式为yyyymmddHHMM, 为0则读取到最后一条
         '''        
-        bar_cache = WtBarCache()
+        '''
+        按周期确定时间戳的编码方式。
+        原先这里是 WtBarCache() 不带参数, 于是日线和秒线的 bartimes
+        都按分钟线的规则加了 199000000000, 算出来是错的
+        '''
+        bar_cache = WtBarCache(periodFlag=period_to_flag(period))
         if fromTime is not None:
             ret = self.api.get_bars_by_range(bytes(stdCode, encoding="utf8"), bytes(period,'utf8'), fromTime, endTime, CB_GET_BAR(bar_cache.on_read_bar), CB_DATA_COUNT(bar_cache.on_data_count))
         else:
@@ -104,7 +109,8 @@ class WtDtServoApi:
         @iSec       周期, 单位s
         @iDate      数据日期, 格式为yyyymmdd
         '''        
-        bar_cache = WtBarCache()
+        #从tick现场聚合出来的秒线, 时间戳同样是 yyyyMMddHHmmss
+        bar_cache = WtBarCache(periodFlag=PERIOD_FLAG_SEC)
         ret = self.api.get_sbars_by_date(bytes(stdCode, encoding="utf8"), iSec, iDate, CB_GET_BAR(bar_cache.on_read_bar), CB_DATA_COUNT(bar_cache.on_data_count))
 
         if ret == 0:
@@ -114,15 +120,20 @@ class WtDtServoApi:
 
     def get_bars_by_date(self, stdCode:str, period:str, iDate:int) -> WtNpKline:
         '''
-        按天读取分钟线
+        按天读取K线
         @stdCode    标准合约代码
-        @period     周期, 分钟线
+        @period     周期, 分钟线(m1/m5)或秒线(s5/s15)
         @iDate      数据日期, 格式为yyyymmdd
         '''
-        if period[0] != 'm':
+        '''
+        原先这里只放行 'm' 开头的周期, 秒线会被静默返回None。
+        底层的 get_bars_by_date 现在支持秒线了, 所以这里放开;
+        日线按天查没有意义, 仍然拦掉
+        '''
+        if period[0] not in ('m', 's'):
             return None
 
-        bar_cache = WtBarCache()
+        bar_cache = WtBarCache(periodFlag=period_to_flag(period))
         ret = self.api.get_bars_by_date(bytes(stdCode, encoding="utf8"), bytes(period, encoding="utf8"), iDate, CB_GET_BAR(bar_cache.on_read_bar), CB_DATA_COUNT(bar_cache.on_data_count))
 
         if ret == 0:

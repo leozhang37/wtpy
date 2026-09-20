@@ -11,6 +11,32 @@ NpTypeBar = np.dtype([('date','u4'),('reserve','u4'),('time','u8'),('open','d'),
                 ('high','d'),('low','d'),('close','d'),('settle','d'),\
                 ('turnover','d'),('volume','d'),('open_interest','d'),('diff','d')])
 
+'''
+K线时间戳的三种编码, 取值和 WTSBarStruct.to_tuple 的 flag 参数一致
+    分钟线: (date-19900000)*10000 + HHMM, 转成可读时间戳要加 199000000000
+    日线:   直接用 date
+    秒线:   yyyyMMddHHmmss, 本身就是可读的, 不能再加偏移
+'''
+PERIOD_FLAG_MIN = 0
+PERIOD_FLAG_DAY = 1
+PERIOD_FLAG_SEC = 2
+
+def period_to_flag(period:str) -> int:
+    '''
+    根据周期字符串推导时间戳编码标记
+    @period 周期, 如 m1/m5/d1/s5/s15
+    '''
+    if period is None or len(period) == 0:
+        return PERIOD_FLAG_MIN
+
+    c = period[0]
+    if c == 'd':
+        return PERIOD_FLAG_DAY
+    elif c == 's':
+        return PERIOD_FLAG_SEC
+
+    return PERIOD_FLAG_MIN
+
 NpTypeTick = np.dtype([('exchg','S16'),('code','S32'),('price','d'),('open','d'),('high','d'),('low','d'),('settle_price','d'),\
                 ('upper_limit','d'),('lower_limit','d'),('total_volume','d'),('volume','d'),('total_turnover','d'),('turn_over','d'),\
                 ('open_interest','d'),('diff_interest','d'),('trading_date','u4'),('action_date','u4'),('action_time','u4'),\
@@ -40,15 +66,23 @@ class WtNpKline:
     提供一些常用的属性和方法
     '''
     __type__:np.dtype = NpTypeBar
-    def __init__(self, isDay:bool = False, forceCopy:bool = False):
+    def __init__(self, isDay:bool = False, forceCopy:bool = False, periodFlag:int = None):
         '''
         基于numpy.ndarray的K线数据容器
         @isDay      是否是日线数据, 主要用于控制bartimes的生成机制
         @forceCopy  是否强制拷贝, 如果为True, 则会拷贝一份数据, 否则会直接引用内存中的数据
                     强制拷贝主要用于WtDtHelper的read_dsb_bars和read_dmb_bars接口, 因为这两个接口返回的数据是临时的, 调用结束就会释放
+        @periodFlag 时间戳编码标记, 见 PERIOD_FLAG_*。
+                    秒线的时间戳是 yyyyMMddHHmmss, 和分钟线的
+                    (date-19900000)*10000+HHMM 差5个数量级, 只靠 isDay
+                    这个布尔量表达不了, 所以单独加了这个标记。
+                    不传则按 isDay 推导, 保持原有调用方的行为不变
         '''
         self.__data__:np.ndarray = None
         self.__isDay__:bool = isDay
+        if periodFlag is None:
+            periodFlag = PERIOD_FLAG_DAY if isDay else PERIOD_FLAG_MIN
+        self.__period_flag__:int = periodFlag
         self.__force_copy__:bool = forceCopy
         self.__bartimes__:np.ndarray = None
         self.__df__:pd.DataFrame = None
@@ -68,6 +102,18 @@ class WtNpKline:
     def set_day_flag(self, isDay:bool):
         if self.__isDay__ != isDay:
             self.__isDay__ = isDay
+            #日线标记变了, 编码标记要跟着走
+            self.__period_flag__ = PERIOD_FLAG_DAY if isDay else PERIOD_FLAG_MIN
+            self.__bartimes__ = None
+            self.__df__ = None
+
+    def set_period_flag(self, periodFlag:int):
+        '''
+        设置时间戳编码标记, 见 PERIOD_FLAG_*
+        '''
+        if self.__period_flag__ != periodFlag:
+            self.__period_flag__ = periodFlag
+            self.__isDay__ = (periodFlag == PERIOD_FLAG_DAY)
             self.__bartimes__ = None
             self.__df__ = None
 
@@ -117,8 +163,14 @@ class WtNpKline:
         这里应该会构造一个副本, 可以暂存一个
         '''
         if self.__bartimes__ is None:
-            if self.__isDay__:
-                self.__bartimes__ = self.__data__["date"] 
+            if self.__period_flag__ == PERIOD_FLAG_DAY:
+                self.__bartimes__ = self.__data__["date"]
+            elif self.__period_flag__ == PERIOD_FLAG_SEC:
+                '''
+                秒线的时间戳已经是 yyyyMMddHHmmss, 直接用。
+                如果误加了199000000000, 得到的是一个毫无意义的大数
+                '''
+                self.__bartimes__ = self.__data__["time"]
             else:
                 self.__bartimes__ = self.__data__["time"] + 199000000000
         return self.__bartimes__
@@ -129,6 +181,13 @@ class WtNpKline:
     @property
     def is_day(self) -> bool:
         return self.__isDay__
+
+    @property
+    def period_flag(self) -> int:
+        '''
+        时间戳编码标记, 见 PERIOD_FLAG_*
+        '''
+        return self.__period_flag__
     
     def to_df(self) -> pd.DataFrame:
         if self.__df__ is None:
@@ -349,15 +408,20 @@ class WtNpOrdQueues:
         return self.__data__
     
 class WtBarCache:
-    def __init__(self, isDay:bool = False, forceCopy:bool = False):
+    def __init__(self, isDay:bool = False, forceCopy:bool = False, periodFlag:int = None):
+        '''
+        @periodFlag 时间戳编码标记, 见 PERIOD_FLAG_*, 不传则按 isDay 推导
+        '''
         self.records:WtNpKline = None
         self.__is_day__ = isDay
+        self.__period_flag__ = periodFlag
         self.__force_copy__ = forceCopy
         self.__total_count__ = 0
 
     def on_read_bar(self, firstItem:POINTER(WTSBarStruct), count:int, isLast:bool):
         if self.records is None:
-            self.records = WtNpKline(isDay=self.__is_day__, forceCopy=self.__force_copy__)
+            self.records = WtNpKline(isDay=self.__is_day__, forceCopy=self.__force_copy__,
+                                     periodFlag=self.__period_flag__)
 
         # 多次set_data，会在内部自动concatenate
         self.records.set_data(firstItem, count)

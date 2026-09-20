@@ -8,7 +8,7 @@ from wtpy.WtCoreDefs import CHNL_EVENT_READY, CHNL_EVENT_LOST, CB_ENGINE_EVENT
 from wtpy.WtCoreDefs import FUNC_LOAD_HISBARS, FUNC_LOAD_HISTICKS, FUNC_LOAD_ADJFACTS
 from wtpy.WtCoreDefs import EVENT_ENGINE_INIT, EVENT_SESSION_BEGIN, EVENT_SESSION_END, EVENT_ENGINE_SCHDL
 from wtpy.WtCoreDefs import WTSTickStruct, WTSBarStruct, WTSOrdQueStruct, WTSOrdDtlStruct, WTSTransStruct
-from wtpy.WtDataDefs import WtNpKline, WtNpOrdDetails, WtNpOrdQueues, WtNpTicks, WtNpTransactions
+from wtpy.WtDataDefs import WtNpKline, WtNpOrdDetails, WtNpOrdQueues, WtNpTicks, WtNpTransactions, period_to_flag
 from wtpy.WtUtilDefs import singleton
 from .PlatformHelper import PlatformHelper as ph
 import os
@@ -170,7 +170,12 @@ class WtWrapper:
         period = bytes.decode(period)
         isDay = period[0]=='d'
 
-        npBars = WtNpKline(isDay, forceCopy=False)
+        '''
+        秒线的时间戳是 yyyyMMddHHmmss, 只靠 isDay 区分不了,
+        所以这里把周期字符串换算成编码标记再传进去。
+        否则策略侧拿到的 bartimes 会被多加 199000000000
+        '''
+        npBars = WtNpKline(isDay, forceCopy=False, periodFlag=period_to_flag(period))
         npBars.set_data(curBar, count)
 
         if ctx is not None:

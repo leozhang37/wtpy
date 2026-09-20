@@ -8,7 +8,7 @@ from wtpy.WtCoreDefs import EVENT_ENGINE_INIT, EVENT_SESSION_BEGIN, EVENT_SESSIO
 from wtpy.WtCoreDefs import WTSTickStruct, WTSBarStruct, WTSOrdQueStruct, WTSOrdDtlStruct, WTSTransStruct
 from .PlatformHelper import PlatformHelper as ph
 from wtpy.WtUtilDefs import singleton
-from wtpy.WtDataDefs import WtNpKline, WtNpOrdDetails, WtNpOrdQueues, WtNpTicks, WtNpTransactions
+from wtpy.WtDataDefs import WtNpKline, WtNpOrdDetails, WtNpOrdQueues, WtNpTicks, WtNpTransactions, period_to_flag
 import os
 
 # Python对接C接口的库
@@ -178,7 +178,8 @@ class WtBtWrapper:
         period = bytes.decode(period)
         isDay = period[0]=='d'
 
-        npBars = WtNpKline(isDay)
+        #秒线的时间戳编码和分钟线不同, 见 period_to_flag 的说明
+        npBars = WtNpKline(isDay, periodFlag=period_to_flag(period))
         npBars.set_data(curBar, count)
 
         if ctx is not None:
