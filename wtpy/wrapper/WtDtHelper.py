@@ -4,7 +4,7 @@ from wtpy.WtDataDefs import WtTickCache, WtNpOrdDetails, WtNpOrdQueues, WtNpTran
 from wtpy.SessionMgr import SessionInfo
 from wtpy.wrapper.PlatformHelper import PlatformHelper as ph
 from wtpy.WtUtilDefs import singleton
-import os,logging
+import os,logging,json
 
 CB_DTHELPER_LOG = CFUNCTYPE(c_void_p,  c_char_p)
 CB_DTHELPER_TICK = CFUNCTYPE(c_void_p,  POINTER(WTSTickStruct), c_uint32, c_bool)
@@ -35,6 +35,8 @@ class WtDataHelper:
         
         self.cb_dthelper_log = CB_DTHELPER_LOG(self.on_log_output)
         self.api.resample_bars.argtypes = [c_char_p, CB_DTHELPER_BAR, CB_DTHELPER_COUNT, c_uint64, c_uint64, c_char_p, c_uint32, c_char_p, CB_DTHELPER_LOG]
+        self.api.trans_ticks_to_sec5.argtypes = [c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_uint32, c_uint32, c_char_p, CB_DTHELPER_LOG]
+        self.api.trans_ticks_to_sec5.restype = c_uint32
 
     def on_log_output(self, message:str):
         message = bytes.decode(message, 'utf-8')
@@ -270,3 +272,31 @@ class WtDataHelper:
             return None
         else:
             return bar_cache.records
+
+    def trans_ticks_to_sec5(self, tickFolder:str, outFolder:str, commFile:str, sessFile:str, filter:str = "",
+            sDate:int = 0, eDate:int = 0, skipNoTradeTick:bool = False, skipNoTradeBar:bool = False,
+            minbarPriceMode:int = 0, overwrite:bool = False) -> int:
+        '''
+        将历史tick数据转换成5秒线(sec5)，产出与datakit实盘落盘的sec5逐根一致
+        @tickFolder         his/ticks根目录，目录结构为<exchg>/<date>/<code>.dsb
+        @outFolder          his/sec5根目录，输出<exchg>/<code>.dsb
+        @commFile           品种配置文件，如commodities.json
+        @sessFile           交易时间配置文件，如sessions.json
+        @filter             合约或品种白名单，写法同datakit的sec5_codes，如"DCE.jm,SHFE.rb2610"，空表示全部
+        @sDate              起始交易日(含)，格式yyyymmdd，0表示不限
+        @eDate              截止交易日(含)，格式yyyymmdd，0表示不限
+        @skipNoTradeTick    对应datakit的skip_notrade_tick，必须与datakit配置一致
+        @skipNoTradeBar     对应datakit的skip_notrade_bar，必须与datakit配置一致
+        @minbarPriceMode    对应datakit的minbar_price_mode，必须与datakit配置一致
+        @overwrite          False时输出文件里已有的交易日保留原样、只补缺失的交易日；True时用新算的覆盖同交易日数据
+        @return             新写入的bar条数
+        '''
+        options = json.dumps({
+            "skip_notrade_tick": skipNoTradeTick,
+            "skip_notrade_bar": skipNoTradeBar,
+            "minbar_price_mode": minbarPriceMode,
+            "overwrite": overwrite
+        })
+        return self.api.trans_ticks_to_sec5(bytes(tickFolder, encoding="utf8"), bytes(outFolder, encoding="utf8"),
+                bytes(commFile, encoding="utf8"), bytes(sessFile, encoding="utf8"), bytes(filter, encoding="utf8"),
+                sDate, eDate, bytes(options, encoding="utf8"), self.cb_dthelper_log)
